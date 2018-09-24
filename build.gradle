@@ -6,28 +6,65 @@
  * user guide available at https://docs.gradle.org/4.9/userguide/tutorial_java_projects.html
  */
 
-plugins {
-    // Apply the java plugin to add support for Java
-    id 'java'
+plugins 
+{
+    id 'com.gradle.build-scan' version '1.16'
+}
 
-    // Apply the application plugin to add support for building an application
-    id 'application'
+repositories {
+    mavenCentral()
+    jcenter()
+}
+apply plugin: 'antlr'
+apply plugin: 'java'
+apply plugin: 'application'
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile "org.antlr:antlr4-runtime:4.7.1"
+    compile "org.antlr:ST4:4.0.8"
+    compile 'info.picocli:picocli:3.6.0'
+    antlr "org.antlr:antlr4:4.7.1"
+    testCompile 'junit:junit:4.12'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes('Implementation-Title': 'Coolc',
+                   'Implementation-Version': '0.01',
+                   'Main-Class': 'coolc.Coolc')
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }
 
 // Define the main class for the application
-mainClassName = 'App'
+mainClassName = 'coolc.Coolc'
 
-dependencies {
-    // This dependency is found on compile classpath of this component and consumers.
-    compile 'com.google.guava:guava:23.0'
-
-    // Use JUnit test framework
-    testCompile 'junit:junit:4.12'
+generateGrammarSource {
+    maxHeapSize = "64m"
+    arguments += ["-visitor", "-long-messages"]
+    arguments += ["-package", "coolc"]
+    outputDirectory = new File("generated-src/antlr/main/coolc".toString())
 }
 
-// In this section you declare where to find the dependencies of your project
-repositories {
-    // Use jcenter for resolving your dependencies.
-    // You can declare any Maven/Ivy/file repository here.
-    jcenter()
+buildScan {
+    termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+    termsOfServiceAgree = 'yes'
 }
+
+sourceSets {
+    main.java.srcDirs += 'generated-src/antlr/main/'
+    generated {
+        java.srcDir 'generated-src/antlr/main/'
+    }
+}
+
+compileJava.source sourceSets.generated.java, sourceSets.main.java
+
+compileJava.dependsOn generateGrammarSource
+compileTestJava.dependsOn generateGrammarSource
+
+
